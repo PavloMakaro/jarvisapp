@@ -1,0 +1,50 @@
+name: Build Android App
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Repair Android Project
+        run: |
+          # Backup custom files
+          mkdir -p backup
+          cp android/app/src/main/kotlin/com/example/flutter_app/MainActivity.kt backup/ || true
+          cp android/app/src/main/AndroidManifest.xml backup/ || true
+          
+          # Regenerate Android project structure (fills missing Gradle files)
+          flutter create --platforms=android --org com.example .
+          
+          # Restore custom files
+          cp backup/MainActivity.kt android/app/src/main/kotlin/com/example/flutter_app/ || true
+          cp backup/AndroidManifest.xml android/app/src/main/ || true
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
